@@ -6,6 +6,7 @@ let gameHistory = [];
 let lastBetAmount = 0;
 let currentDealer = null;
 let currentPlayerIndex = 0;
+let dealerIndex = -1; // 庄家在活跃玩家中的索引
 
 // 游戏状态变量
 let gameInProgress = false;
@@ -14,6 +15,7 @@ let currentBetInRound = 0; // 当前轮次的最高下注
 let playersInHand = []; // 参与本局的玩家
 let playerActions = []; // 玩家行动记录
 let roundComplete = false;
+let lastRaiseAmount = 0; // 上次加注的金额
 
 // 添加玩家
 function addPlayer() {
@@ -79,17 +81,85 @@ function updatePlayersDisplay() {
             playerDiv.classList.add('folded');
         }
         
+        // 如果玩家跳过，添加跳过效果
+        if (playerInHand && playerInHand.checked) {
+            playerDiv.classList.add('checked');
+        }
+        
         const statusText = player.eliminated ? ' (已淘汰)' : '';
         const foldedText = playerInHand && playerInHand.folded ? ' (已弃牌)' : '';
+        const checkedText = playerInHand && playerInHand.checked ? ' (已跳过)' : '';
         const dealerText = player.name === currentDealer ? ' 🎯' : '';
         
         playerDiv.innerHTML = `
-            <div class="player-name">${player.name}${dealerText}${statusText}${foldedText}</div>
+            <div class="player-name">${player.name}${dealerText}${statusText}${foldedText}${checkedText}</div>
             <div class="player-chips">${player.chips} 筹码</div>
         `;
         
+        // 添加点击事件来修改筹码
+        playerDiv.addEventListener('click', () => {
+            adjustPlayerChips(player.name);
+        });
+        
         playersDiv.appendChild(playerDiv);
     });
+}
+
+// 调整玩家筹码
+function adjustPlayerChips(playerName) {
+    const player = players.find(p => p.name === playerName);
+    if (!player) {
+        alert('玩家不存在！');
+        return;
+    }
+    
+    const adjustment = prompt(`调整 ${playerName} 的筹码\n当前筹码：${player.chips}\n请输入调整金额（正数增加，负数减少）：`);
+    
+    if (adjustment === null) {
+        return; // 用户取消
+    }
+    
+    const adjustmentAmount = parseInt(adjustment);
+    if (isNaN(adjustmentAmount)) {
+        alert('请输入有效的数字！');
+        return;
+    }
+    
+    const newChips = player.chips + adjustmentAmount;
+    if (newChips < 0) {
+        alert('筹码不能为负数！');
+        return;
+    }
+    
+    const oldChips = player.chips;
+    player.chips = newChips;
+    
+    // 记录筹码调整历史
+    if (adjustmentAmount > 0) {
+        addToHistory(`${playerName} 筹码增加 ${adjustmentAmount}，从 ${oldChips} 变为 ${newChips}`);
+    } else {
+        addToHistory(`${playerName} 筹码减少 ${Math.abs(adjustmentAmount)}，从 ${oldChips} 变为 ${newChips}`);
+    }
+    
+    // 检查玩家是否因筹码耗尽而被淘汰
+    if (player.chips === 0 && !player.eliminated) {
+        player.eliminated = true;
+        addToHistory(`${playerName} 筹码耗尽，被淘汰！`);
+    } else if (player.chips > 0 && player.eliminated) {
+        // 如果玩家重新获得筹码，取消淘汰状态
+        player.eliminated = false;
+        addToHistory(`${playerName} 重新获得筹码，恢复游戏！`);
+    }
+    
+    // 更新显示
+    updatePlayersDisplay();
+    updatePlayerSelects();
+    
+    // 检查游戏状态
+    checkGameEnd();
+    
+    // 自动保存游戏状态
+    saveGameState();
 }
 
 // 更新玩家选择框
@@ -161,7 +231,7 @@ function setDealerAndBlinds() {
     
     // 找到庄家在玩家列表中的位置
     const activePlayers = players.filter(p => !p.eliminated);
-    const dealerIndex = activePlayers.findIndex(p => p.name === dealerName);
+    dealerIndex = activePlayers.findIndex(p => p.name === dealerName);
     
     if (dealerIndex === -1) {
         alert('庄家不在活跃玩家列表中！');
@@ -181,8 +251,14 @@ function setDealerAndBlinds() {
     currentRound = 1;
     currentBetInRound = 0; // 初始化为0，将通过getCurrentMaxBet()动态计算
     playersInHand = [...activePlayers];
+    // 确保新游戏开始时清除所有效果
+    playersInHand.forEach(player => {
+        delete player.folded;
+        delete player.checked;
+    });
     playerActions = [];
     roundComplete = false;
+    lastRaiseAmount = 20; // 初始化为大盲注金额
     
     addToHistory('正式游戏开始！');
     
@@ -282,6 +358,24 @@ function updateGameInfo() {
     document.getElementById('currentRound').textContent = currentRound;
     const currentMaxBet = getCurrentMaxBet();
     document.getElementById('currentBetAmount').textContent = currentMaxBet;
+    
+    // 计算并显示最小加注额
+    let minRaiseAmount = 0;
+    if (currentMaxBet > 0) {
+        minRaiseAmount = currentMaxBet + lastRaiseAmount;
+    }
+    document.getElementById('minRaiseAmount').textContent = minRaiseAmount;
+    
+    // 更新加注按钮文本
+    const raiseButton = document.querySelector('.raise-btn');
+    if (currentMaxBet > 0) {
+        raiseButton.textContent = `加注至 ${minRaiseAmount}`;
+        raiseButton.disabled = false;
+    } else {
+        raiseButton.textContent = '加注（需先有人投注）';
+        raiseButton.disabled = true;
+    }
+    
     // 同步更新currentBetInRound变量
     currentBetInRound = currentMaxBet;
 }
@@ -305,22 +399,30 @@ function checkRoundComplete() {
     const allPlayersActed = activePlayerNames.every(name => actedPlayerNames.includes(name));
     
     if (allPlayersActed) {
-        // 检查所有玩家的投注是否持平
+        // 检查所有活跃玩家的投注是否持平
         const playerBets = new Map();
         
-        // 初始化所有玩家的投注为0
+        // 初始化所有活跃玩家的投注为0
         activePlayersInHand.forEach(player => {
             playerBets.set(player.name, 0);
         });
         
-        // 累计每个玩家在当前轮次的总投注
-        playersWhoActed.forEach(action => {
-            if (action.action !== 'check' && action.action !== 'fold') {
-                playerBets.set(action.player, action.betAmount);
+        // 累计每个活跃玩家在当前轮次的最高投注金额
+        activePlayersInHand.forEach(player => {
+            const playerActions_filtered = playersWhoActed.filter(action => 
+                action.player === player.name && 
+                action.action !== 'check' && 
+                action.action !== 'fold'
+            );
+            
+            if (playerActions_filtered.length > 0) {
+                // 取该玩家本轮的最高投注金额
+                const maxPlayerBet = Math.max(...playerActions_filtered.map(action => action.betAmount));
+                playerBets.set(player.name, maxPlayerBet);
             }
         });
         
-        // 检查所有玩家投注是否相等
+        // 检查所有活跃玩家投注是否相等
         const betAmounts = Array.from(playerBets.values());
         const maxBet = Math.max(...betAmounts);
         const allBetsEqual = betAmounts.every(bet => bet === maxBet);
@@ -336,11 +438,23 @@ function nextRound() {
     currentRound++;
     currentBetInRound = 0;
     playerActions = [];
-    currentPlayerIndex = 0;
+    lastRaiseAmount = 0; // 重置上次加注金额
+    
+    // 重置所有玩家的跳过状态
+    playersInHand.forEach(player => {
+        delete player.checked;
+    });
     
     if (currentRound > 4) {
         endGameRound();
     } else {
+        // 后续轮（2-4轮）：庄家的下家开始
+        if (currentRound > 1) {
+            const activePlayersInHand = playersInHand.filter(p => !p.eliminated && !p.folded);
+            const dealerIndexInHand = activePlayersInHand.findIndex(p => p.name === currentDealer);
+            currentPlayerIndex = (dealerIndexInHand + 1) % activePlayersInHand.length;
+        }
+        
         addToHistory(`第 ${currentRound} 轮下注开始`);
         startGameRound();
     }
@@ -354,16 +468,23 @@ function endGameRound() {
     // 隐藏游戏控制界面
     document.getElementById('gameControls').style.display = 'none';
     
-    // 重置游戏状态
+    // 重置游戏状态，清除弃牌和跳过效果
     playersInHand.forEach(player => {
         delete player.folded;
+        delete player.checked;
     });
+    
+    // 更新玩家显示
+    updatePlayersDisplay();
 }
 
 // 玩家弃牌
 function playerFold() {
     const activePlayersInHand = playersInHand.filter(p => !p.eliminated && !p.folded);
     const currentPlayer = activePlayersInHand[currentPlayerIndex % activePlayersInHand.length];
+    
+    // 找到当前玩家在playersInHand中的原始索引
+    const currentPlayerIndexInOriginal = playersInHand.findIndex(p => p.name === currentPlayer.name);
     
     // 标记玩家弃牌
     const playerInGame = playersInHand.find(p => p.name === currentPlayer.name);
@@ -390,7 +511,8 @@ function playerFold() {
         return;
     }
     
-    nextPlayer();
+    // 从原始索引开始查找下一个未弃牌的玩家
+    nextPlayerFromOriginalIndex(currentPlayerIndexInOriginal);
 }
 
 // 玩家跳过
@@ -404,6 +526,10 @@ function playerCheck() {
         return;
     }
     
+    // 标记玩家跳过
+    const playerInGame = playersInHand.find(p => p.name === currentPlayer.name);
+    playerInGame.checked = true;
+    
     playerActions.push({
         player: currentPlayer.name,
         action: 'check',
@@ -412,6 +538,9 @@ function playerCheck() {
     });
     
     addToHistory(`${currentPlayer.name} 跳过`);
+    
+    // 更新玩家显示（添加跳过效果）
+    updatePlayersDisplay();
     
     nextPlayer();
 }
@@ -476,6 +605,21 @@ function playerRaise() {
     const activePlayersInHand = playersInHand.filter(p => !p.eliminated && !p.folded);
     const currentPlayer = activePlayersInHand[currentPlayerIndex % activePlayersInHand.length];
     
+    // 获取当前轮次最高投注
+    const currentMaxBet = getCurrentMaxBet();
+    
+    // 如果当前轮次下注金额是0，无法加注
+    if (currentMaxBet === 0) {
+        alert('当前轮次没有下注，无法加注！请选择投注。');
+        return;
+    }
+    
+    // 清除所有玩家的跳过状态（因为有人加注了）
+    playersInHand.forEach(player => {
+        delete player.checked;
+    });
+    updatePlayersDisplay();
+    
     // 计算当前玩家在本轮已投注的金额
     const playerCurrentRoundBets = playerActions.filter(action => 
         action.player === currentPlayer.name && 
@@ -484,11 +628,9 @@ function playerRaise() {
         action.action !== 'check'
     ).reduce((sum, action) => sum + action.betAmount, 0);
     
-    // 获取当前轮次最高投注
-    const currentMaxBet = getCurrentMaxBet();
-    // 加注金额为当前最高投注的2倍，如果没有投注则为20
-    const newBetAmount = currentMaxBet * 2 || 20;
-    const actualRaiseAmount = newBetAmount - playerCurrentRoundBets;
+    // 计算最小加注额：当前最高下注 + 上次加注量
+    const minRaiseAmount = currentMaxBet + lastRaiseAmount;
+    const actualRaiseAmount = minRaiseAmount - playerCurrentRoundBets;
     
     if (actualRaiseAmount <= 0) {
         alert('加注金额必须大于当前投注！');
@@ -500,6 +642,9 @@ function playerRaise() {
         return;
     }
     
+    // 更新上次加注金额
+    lastRaiseAmount = minRaiseAmount - currentMaxBet;
+    
     currentPlayer.chips -= actualRaiseAmount;
     pot += actualRaiseAmount;
     
@@ -507,10 +652,10 @@ function playerRaise() {
         player: currentPlayer.name,
         action: 'raise',
         round: currentRound,
-        betAmount: newBetAmount
+        betAmount: minRaiseAmount
     });
     
-    addToHistory(`${currentPlayer.name} 加注 ${actualRaiseAmount} 筹码，总投注 ${newBetAmount} 筹码`);
+    addToHistory(`${currentPlayer.name} 加注 ${actualRaiseAmount} 筹码，总投注 ${minRaiseAmount} 筹码`);
     
     // 检查玩家是否被淘汰
     if (currentPlayer.chips === 0) {
@@ -536,6 +681,12 @@ function playerBet() {
     
     const activePlayersInHand = playersInHand.filter(p => !p.eliminated && !p.folded);
     const currentPlayer = activePlayersInHand[currentPlayerIndex % activePlayersInHand.length];
+    
+    // 清除所有玩家的跳过状态（因为有人投注了）
+    playersInHand.forEach(player => {
+        delete player.checked;
+    });
+    updatePlayersDisplay();
     
     // 计算当前玩家在本轮已投注的金额
     const playerCurrentRoundBets = playerActions.filter(action => 
@@ -571,6 +722,15 @@ function playerBet() {
     currentPlayer.chips -= actualBetAmount;
     pot += actualBetAmount;
     
+    // 如果这是第一次投注或者是加注，更新lastRaiseAmount
+    if (currentMaxBet === 0) {
+        // 第一次投注
+        lastRaiseAmount = inputBetAmount;
+    } else if (inputBetAmount > currentMaxBet) {
+        // 加注
+        lastRaiseAmount = inputBetAmount - currentMaxBet;
+    }
+    
     playerActions.push({
         player: currentPlayer.name,
         action: 'bet',
@@ -597,6 +757,38 @@ function playerBet() {
 }
 
 // 切换到下一个玩家
+// 从原始索引开始查找下一个未弃牌的玩家
+function nextPlayerFromOriginalIndex(startIndex) {
+    const activePlayersInHand = playersInHand.filter(p => !p.eliminated && !p.folded);
+    
+    if (activePlayersInHand.length <= 1) {
+        endGameRound();
+        return;
+    }
+    
+    // 从startIndex的下一个位置开始在playersInHand中查找未弃牌的玩家
+    let nextOriginalIndex = (startIndex + 1) % playersInHand.length;
+    let attempts = 0;
+    
+    while (attempts < playersInHand.length) {
+        const nextPlayer = playersInHand[nextOriginalIndex];
+        if (!nextPlayer.eliminated && !nextPlayer.folded) {
+            // 找到下一个有效玩家，现在找到他在activePlayersInHand中的索引
+            const indexInActive = activePlayersInHand.findIndex(p => p.name === nextPlayer.name);
+            currentPlayerIndex = indexInActive;
+            
+            // 更新当前玩家名字显示
+            document.getElementById('currentPlayerName').textContent = nextPlayer.name;
+            
+            updateGameInfo();
+            checkRoundComplete();
+            return;
+        }
+        nextOriginalIndex = (nextOriginalIndex + 1) % playersInHand.length;
+        attempts++;
+    }
+}
+
 function nextPlayer() {
     const activePlayersInHand = playersInHand.filter(p => !p.eliminated && !p.folded);
     
@@ -605,22 +797,11 @@ function nextPlayer() {
         return;
     }
     
-    // 找到下一个未弃牌的玩家索引
-    let nextIndex = currentPlayerIndex;
-    let attempts = 0;
-    const maxAttempts = activePlayersInHand.length;
+    // 在activePlayersInHand数组中查找下一个玩家的索引
+    let nextIndexInActive = (currentPlayerIndex + 1) % activePlayersInHand.length;
     
-    do {
-        nextIndex = (nextIndex + 1) % activePlayersInHand.length;
-        attempts++;
-        
-        // 防止无限循环
-        if (attempts >= maxAttempts) {
-            break;
-        }
-    } while (activePlayersInHand[nextIndex] && activePlayersInHand[nextIndex].folded);
-    
-    currentPlayerIndex = nextIndex;
+    // 更新currentPlayerIndex为在activePlayersInHand中的索引
+    currentPlayerIndex = nextIndexInActive;
     
     // 更新当前玩家名字显示
     const currentPlayer = activePlayersInHand[currentPlayerIndex];
@@ -672,8 +853,8 @@ function addToHistory(message) {
     const historyItem = document.createElement('div');
     historyItem.className = 'history-item';
     historyItem.textContent = message;
-    historyDiv.appendChild(historyItem);
-    historyDiv.scrollTop = historyDiv.scrollHeight;
+    // 将新记录插入到最前面，这样最新的记录在上面
+    historyDiv.insertBefore(historyItem, historyDiv.firstChild);
 }
 
 // 清空历史记录
@@ -716,6 +897,7 @@ function resetGame() {
         document.getElementById('manualTransfer').style.display = 'block';
         document.getElementById('gameControls').style.display = 'none';
         updatePotDisplay();
+        updatePlayersDisplay(); // 更新玩家显示以清除所有效果
         
         // 清空输入框
         document.getElementById('playerName').value = '';
@@ -781,14 +963,15 @@ function loadGameState() {
                 document.getElementById('gameControls').style.display = 'none';
             }
             
-            // 恢复历史记录
+            // 恢复历史记录（反向显示，最新的在上面）
             const historyDiv = document.getElementById('gameHistory');
-            gameHistory.forEach(record => {
+            // 反向遍历历史记录，这样最新的记录会显示在最上面
+            for (let i = gameHistory.length - 1; i >= 0; i--) {
                 const historyItem = document.createElement('div');
                 historyItem.className = 'history-item';
-                historyItem.textContent = record;
+                historyItem.textContent = gameHistory[i];
                 historyDiv.appendChild(historyItem);
-            });
+            }
         }
     }
 }
