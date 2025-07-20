@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>德州扑克筹码记录器</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🃏 德州扑克筹码记录器</h1>
+            <p>没有实体筹码？用这个网站来记录每个人的筹码数量！</p>
+        </header>
+
+        <div class="game-setup">
+            <h2>游戏设置</h2>
+            <div class="setup-controls">
+                <div class="input-group">
+                    <label for="playerName">玩家姓名:</label>
+                    <input type="text" id="playerName" placeholder="输入玩家姓名">
+                    <button onclick="addPlayer()">添加玩家</button>
+                </div>
+                <div class="input-group">
+                    <label for="initialChips">初始筹码:</label>
+                    <input type="number" id="initialChips" value="1000" min="1">
+                    <button onclick="startGame()">开始游戏</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="players-section" id="playersSection" style="display: none;">
+            <h2>玩家筹码</h2>
+            <div class="players-grid" id="playersGrid"></div>
+            
+            <div class="game-controls">
+                <h3>庄家设置</h3>
+                <div class="dealer-controls">
+                    <select id="dealerSelect">
+                        <option value="">选择庄家</option>
+                    </select>
+                    <button onclick="setDealerAndBlinds()">设置庄家并收取盲注</button>
+                </div>
+                
+                <h3>筹码操作</h3>
+                <div class="chip-controls">
+                    <select id="fromPlayer">
+                        <option value="">选择转出玩家</option>
+                    </select>
+                    <input type="number" id="chipAmount" placeholder="筹码数量" min="10" step="10">
+                    <select id="toPlayer">
+                        <option value="">选择接收玩家</option>
+                        <option value="pot">底池</option>
+                        <option value="all">所有人</option>
+                    </select>
+                    <button onclick="transferChips()">转移筹码</button>
+                    <button onclick="callBet()" class="call-btn">跟注</button>
+                    <button onclick="raiseBet()" class="raise-btn">加注</button>
+                </div>
+                
+                <div class="pot-section">
+                    <h3>底池: <span id="potAmount">0</span> 筹码</h3>
+                    <button onclick="distributePot()">分配底池给获胜者</button>
+                    <select id="winner">
+                        <option value="">选择获胜者</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="history-section">
+            <h2>游戏记录</h2>
+            <div id="gameHistory"></div>
+            <button onclick="clearHistory()">清空记录</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
