@@ -42,20 +42,25 @@
                     <button onclick="setDealerAndBlinds()">设置庄家并收取盲注</button>
                 </div>
                 
-                <h3>筹码操作</h3>
-                <div class="chip-controls">
-                    <select id="fromPlayer">
-                        <option value="">选择转出玩家</option>
-                    </select>
-                    <input type="number" id="chipAmount" placeholder="筹码数量" min="10" step="10">
-                    <select id="toPlayer">
-                        <option value="">选择接收玩家</option>
-                        <option value="pot">底池</option>
-                        <option value="all">所有人</option>
-                    </select>
-                    <button onclick="transferChips()">转移筹码</button>
-                    <button onclick="callBet()" class="call-btn">跟注</button>
-                    <button onclick="raiseBet()" class="raise-btn">加注</button>
+
+                
+                <div class="game-controls" id="gameControls" style="display: none;">
+                    <h3>游戏操作</h3>
+                    <div class="game-info">
+                        <div class="current-player">当前玩家: <span id="currentPlayerName"></span></div>
+                        <div class="game-round">第 <span id="currentRound">1</span> 轮下注</div>
+                        <div class="current-bet">当前下注: <span id="currentBetAmount">0</span> 筹码</div>
+                    </div>
+                    <div class="action-buttons">
+                        <button onclick="playerFold()" class="fold-btn">弃牌</button>
+                        <button onclick="playerCheck()" class="check-btn">跳过</button>
+                        <button onclick="playerCall()" class="call-btn">跟注</button>
+                        <button onclick="playerRaise()" class="raise-btn">加注</button>
+                        <div class="bet-input">
+                            <input type="number" id="betAmount" placeholder="投注金额" min="10" step="10">
+                            <button onclick="playerBet()" class="bet-btn">投注</button>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="pot-section">
@@ -71,7 +76,10 @@
         <div class="history-section">
             <h2>游戏记录</h2>
             <div id="gameHistory"></div>
-            <button onclick="clearHistory()">清空记录</button>
+            <div class="history-controls">
+                <button onclick="clearHistory()">清空记录</button>
+                <button onclick="resetGame()" class="reset-btn">重置游戏</button>
+            </div>
         </div>
     </div>
 

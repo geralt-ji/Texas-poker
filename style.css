@@ -168,6 +168,95 @@ button:active {
     background: linear-gradient(135deg, #e17055 0%, #d63031 100%) !important;
 }
 
+.game-controls {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    padding: 20px;
+    border-radius: 12px;
+    margin: 20px 0;
+    color: white;
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+}
+
+.game-info div {
+    font-weight: bold;
+    text-align: center;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.action-buttons button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 80px;
+}
+
+.fold-btn {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+}
+
+.check-btn {
+    background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+    color: white;
+}
+
+.call-btn {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+}
+
+.raise-btn {
+    background: linear-gradient(135deg, #e67e22, #d35400);
+    color: white;
+}
+
+.bet-btn {
+    background: linear-gradient(135deg, #27ae60, #229954);
+    color: white;
+}
+
+.action-buttons button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.bet-input {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.bet-input input {
+    padding: 10px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    width: 120px;
+}
+
+.bet-input input::placeholder {
+    color: rgba(255, 255, 255, 0.7);
+}
+
 .pot-section {
     background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
     padding: 20px;
@@ -223,9 +312,39 @@ button:active {
     border-bottom: none;
 }
 
+.history-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    justify-content: center;
+}
+
+.reset-btn {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%) !important;
+    color: white !important;
+}
+
+.reset-btn:hover {
+    background: linear-gradient(135deg, #c0392b 0%, #a93226 100%) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
 .eliminated {
     opacity: 0.6;
     background: linear-gradient(135deg, #bdc3c7 0%, #95a5a6 100%) !important;
+}
+
+.player-card.folded {
+    opacity: 0.6;
+    background-color: #f5f5f5;
+    border: 2px dashed #999;
+}
+
+.folded-text {
+    color: #666;
+    font-style: italic;
+    margin: 5px 0;
 }
 
 @media (max-width: 768px) {
